@@ -1,7 +1,8 @@
 """A simple paper-trading broker that simulates fills at the reference price.
 
-Tracks cash, positions, and a volume-weighted average entry price. Good enough to
-validate strategy logic and to back the bundled backtester.
+Tracks cash, positions, and a volume-weighted average entry price, and counts
+realised round-trip trades (and how many were profitable) so the backtester can
+report a win rate. Good enough to validate strategy logic end to end.
 
 Part of AI Trading Bot by Viprasol Tech Private Limited (https://viprasol.com).
 """
@@ -19,6 +20,10 @@ class PaperBroker(Broker):
         self.cash = starting_cash
         self.fee_rate = fee_rate
         self._positions: dict[str, Position] = {}
+        #: Number of sells that reduced a long position (realised trades).
+        self.closed_trades = 0
+        #: Subset of ``closed_trades`` that booked a positive P&L after fees.
+        self.winning_trades = 0
 
     def submit(self, order: Order, price: float) -> None:
         if price <= 0 or order.quantity <= 0:
@@ -36,6 +41,13 @@ class PaperBroker(Broker):
             )
             pos.quantity = new_qty
         else:
+            closed_qty = min(order.quantity, pos.quantity)
+            if closed_qty > 0:
+                # Realised P&L on the portion that closes an existing long.
+                pnl = (price - pos.avg_price) * closed_qty - notional * self.fee_rate
+                self.closed_trades += 1
+                if pnl > 0:
+                    self.winning_trades += 1
             self.cash += notional - fee
             pos.quantity -= order.quantity
             if pos.quantity <= 0:
