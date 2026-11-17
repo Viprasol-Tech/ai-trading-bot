@@ -78,22 +78,27 @@ from ai_trading_bot.signals.base import Signal
 from ai_trading_bot.signals.ensemble import SignalEnsemble
 from ai_trading_bot.signals.indicators import MACDSignal, MovingAverageCrossover, RSISignal
 
+
 # 1) Blend signals (add your own ML model the same way) and backtest.
 class MyModel(Signal):
     name = "my_model"
+
     def evaluate(self, bars):
         return 0.5  # your model's bullish/bearish score in [-1, 1]
+
 
 ensemble = SignalEnsemble(
     [MovingAverageCrossover(10, 30), RSISignal(14), MACDSignal(12, 26, 9), MyModel()],
     weights=[1.0, 1.0, 1.0, 2.0],
 )
 result = run_backtest("BTCUSDT", ensemble, bars)
-print(result.as_dict())          # total_return_pct, sharpe, sortino, max_drawdown_pct, ...
+print(result.as_dict())  # total_return_pct, sharpe, sortino, max_drawdown_pct, ...
+
 
 # 2) Grid-scan a parameter space, ranked best-first by a metric.
 def build_ma(p: Mapping[str, float]) -> Signal:
     return MovingAverageCrossover(int(p["fast"]), int(p["slow"]))
+
 
 ranked = grid_scan("BTCUSDT", build_ma, bars, {"fast": [5, 10], "slow": [30, 40]}, metric="sharpe")
 print(ranked[0].params, ranked[0].score)
